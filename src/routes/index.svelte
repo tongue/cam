@@ -1,84 +1,82 @@
 <script lang="ts">
-	const camWidth = 640;
-	const camHeight = 480;
-	const frameRate = 30;
-	const aspectRatio = 4 / 3;
+	import { browser } from '$app/env';
+	import { pixelize, binarize } from '$lib/utils';
+	import { srcObject } from '$lib/actions';
+	import { onMount, onDestroy } from 'svelte';
+
+	export let aspectRatio = 4 / 3;
 
 	let width = 640;
 	let height = 480;
 	let pixelSize = 8;
 	let threshold = 96;
-	let video: HTMLVideoElement;
-	let canvas: HTMLCanvasElement;
-	let context: CanvasRenderingContext2D | null;
 
-	async function init(videoElement: HTMLVideoElement): Promise<void> {
-		if (videoElement) {
-			try {
-				const stream = await navigator.mediaDevices.getUserMedia({
-					video: { width: camWidth, height: camHeight, frameRate }
-				});
-				videoElement.srcObject = stream;
-			} catch (error) {
-				alert('no video stream');
-			}
-			context = canvas.getContext('2d');
-		}
-	}
+	let video: HTMLVideoElement | null;
+	let canvas: HTMLCanvasElement | null;
+	let context: CanvasRenderingContext2D | null;
+	let stream: MediaStream | null;
+
+	let animationFrame = -1;
+
+	$: height = Math.round(width / aspectRatio);
 
 	const draw = () => {
-		if (context) {
-			const scale = 1 / pixelSize; // calculate scale fraction
-			const widthScaled = width * scale;
-			const heightScaled = height * scale;
-
-			context.drawImage(video, 0, 0, widthScaled, heightScaled); // draw small version of image
-			context.imageSmoothingEnabled = false;
-			context.drawImage(canvas, 0, 0, widthScaled, heightScaled, 0, 0, width, height); // scale up the previously drawn image
-
-			let color: number = 0;
-			let image = context.getImageData(0, 0, width, height);
-
-			let { data } = image;
-			for (let i = 0; i < data.length; i = i + 4) {
-				const r = data[i];
-				const g = data[i + 1];
-				const b = data[i + 2];
-
-				if ((r + g + b) / 3 < threshold) {
-					color = 0;
-				} else {
-					color = 255;
-				}
-
-				data[i] = data[i + 1] = data[i + 2] = color;
-			}
-
-			context.putImageData(new ImageData(data, width, height), 0, 0);
+		if (context && video && canvas) {
+			// pixelize the frame
+			pixelize(context, video, canvas, pixelSize, width, height);
+			// make the frame a binary image (black/white with image thresholding)
+			binarize(context, threshold, width, height);
 		}
 
-		setTimeout(draw, frameRate);
+		// continue animation loop
+		requestAnimationFrame(draw);
 	};
 
-	$: init(video);
+	const play = () => {
+		if (video) {
+			video.play();
+		}
+	};
 
-	$: height = width / aspectRatio;
+	const mount = async () => {
+		if (video && canvas) {
+			stream = await navigator.mediaDevices.getUserMedia({
+				video: { width: 640, height: 480, frameRate: 60 }
+			});
+			context = canvas.getContext('2d');
+		}
+	};
+
+	const destroy = () => {
+		if (browser) {
+			cancelAnimationFrame(animationFrame);
+		}
+	};
+
+	onMount(mount);
+	onDestroy(destroy);
 </script>
 
-<svelte:window bind:innerWidth={width} bind:innerHeight={height} />
-
-<video bind:this={video} autoplay on:loadedmetadata={() => video.play()} on:play={draw}>
+<svelte:head>
+	<title>Pixelized Binary Image Cam</title>
+</svelte:head>
+<svelte:window bind:innerWidth={width} />
+<video use:srcObject={stream} bind:this={video} autoplay on:loadedmetadata={play} on:play={draw}>
 	<track kind="captions" />
 </video>
 <canvas bind:this={canvas} {width} {height} />
+
 <aside>
+	<h2>Options</h2>
 	<label for="pixelSize">
-		Pixel size:
+		<span>Pixel size:</span>
 		<input id="pixelSize" type="range" min="0.1" max="32" step="0.1" bind:value={pixelSize} />
+		<input type="text" bind:value={pixelSize} />
 	</label>
 	<label for="threshold">
-		Threshhold:
+		<span>Threshhold:</span>
 		<input id="threshold" type="range" min="0" max="255" step="1" bind:value={threshold} />
+		<input type="text" bind:value={threshold} />
 	</label>
 </aside>
 
@@ -86,19 +84,37 @@
 	:global(body) {
 		margin: 0;
 		padding: 0;
+		font-family: sans-serif;
 	}
+
 	video {
 		display: none;
 	}
+
 	aside {
 		display: flex;
 		flex-direction: column;
+		gap: 0.33em;
 		position: absolute;
 		top: 2em;
 		right: 2em;
+		background-color: hsla(0, 0%, 0%, 0.7);
+		padding: 1em;
+		color: hsla(0, 0%, 100%, 1);
 	}
+
+	h2 {
+		margin: 0 0 0.33em;
+	}
+
 	label {
 		display: flex;
-		color: hotpink;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1em;
+	}
+
+	input[type='text'] {
+		width: 4ch;
 	}
 </style>
