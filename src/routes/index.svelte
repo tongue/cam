@@ -29,7 +29,7 @@
 		}
 
 		// continue animation loop
-		requestAnimationFrame(draw);
+		animationFrame = requestAnimationFrame(draw);
 	};
 
 	const play = () => {
