@@ -20,8 +20,8 @@ export function binarize(
 	width: number,
 	height: number
 ): void {
-	const image = context.getImageData(0, 0, width, height);
-	const bwData = blackOrWhitePixelsByThreshold(image.data, threshold);
+	const frame = context.getImageData(0, 0, width, height);
+	const bwData = blackOrWhitePixelsByThreshold(frame.data, threshold);
 	context.putImageData(new ImageData(bwData, width, height), 0, 0);
 }
 
@@ -40,4 +40,45 @@ export function pixelize(
 	context.drawImage(video, 0, 0, widthScaled, heightScaled); // draw small version of image
 	context.imageSmoothingEnabled = false;
 	context.drawImage(canvas, 0, 0, widthScaled, heightScaled, 0, 0, width, height); // scale up the previously drawn image
+}
+
+export function avarageRGB(frame: ImageData): { r: number; g: number; b: number } {
+	const length = frame.data.length / 4;
+
+	let r = 0;
+	let g = 0;
+	let b = 0;
+
+	for (let i = 0; i < length; i++) {
+		r += frame.data[i * 4 + 0];
+		g += frame.data[i * 4 + 1];
+		b += frame.data[i * 4 + 2];
+	}
+
+	return {
+		r: r / length,
+		g: g / length,
+		b: b / length
+	};
+}
+
+const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&()/\\+<>';
+export function asciirize(
+	context: CanvasRenderingContext2D,
+	hiddenContext: CanvasRenderingContext2D,
+	width: number,
+	height: number,
+	fontWidth: number,
+	fontHeight: number
+) {
+	for (let y = 0; y < height; y += fontHeight) {
+		for (let x = 0; x < width; x += fontWidth) {
+			const frame = hiddenContext.getImageData(x, y, fontWidth, fontHeight);
+			const { r, g, b } = avarageRGB(frame);
+			const char = charset[Math.floor(Math.random() * charset.length)];
+
+			context.fillStyle = `rgb(${r},${g},${b})`;
+			context.fillText(char, x, y);
+		}
+	}
 }
