@@ -42,27 +42,37 @@ export function pixelize(
 	context.drawImage(canvas, 0, 0, widthScaled, heightScaled, 0, 0, width, height); // scale up the previously drawn image
 }
 
-export function avarageRGB(frame: ImageData): { r: number; g: number; b: number } {
+export function avarageRGB(frame: ImageData): { r: number; g: number; b: number; char: number } {
 	const length = frame.data.length / 4;
 
-	let r = 0;
-	let g = 0;
-	let b = 0;
+	let red = 0;
+	let green = 0;
+	let blue = 0;
 
 	for (let i = 0; i < length; i++) {
-		r += frame.data[i * 4 + 0];
-		g += frame.data[i * 4 + 1];
-		b += frame.data[i * 4 + 2];
+		red += frame.data[i * 4 + 0];
+		green += frame.data[i * 4 + 1];
+		blue += frame.data[i * 4 + 2];
 	}
+	const r = red / length;
+	const g = green / length;
+	const b = blue / length;
+
+	const brightnessLevels = Math.round(255 / charset.length);
+	const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
+
+	const char = Math.round(hsp / brightnessLevels);
 
 	return {
-		r: r / length,
-		g: g / length,
-		b: b / length
+		r,
+		g,
+		b,
+		char
 	};
 }
 
-const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&()/\\+<>';
+const charset = '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/|()1{}[]?-_+~<>i!lI;:,"^`\'.   ';
+
 export function asciirize(
 	context: CanvasRenderingContext2D,
 	hiddenContext: CanvasRenderingContext2D,
@@ -74,11 +84,10 @@ export function asciirize(
 	for (let y = 0; y < height; y += fontHeight) {
 		for (let x = 0; x < width; x += fontWidth) {
 			const frame = hiddenContext.getImageData(x, y, fontWidth, fontHeight);
-			const { r, g, b } = avarageRGB(frame);
-			const char = charset[Math.floor(Math.random() * charset.length)];
+			const { r, g, b, char } = avarageRGB(frame);
 
 			context.fillStyle = `rgb(${r},${g},${b})`;
-			context.fillText(char, x, y);
+			context.fillText(charset[char], x, y);
 		}
 	}
 }

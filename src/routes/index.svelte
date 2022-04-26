@@ -4,10 +4,10 @@
 	import { srcObject } from '$lib/actions';
 	import { onMount, onDestroy } from 'svelte';
 
-	export let aspectRatio = 4 / 3;
+	export let aspectRatio = 16 / 9;
 
 	let width = 640;
-	let height = 480;
+	let height = 360;
 	let pixelSize = 16;
 	let fontSize = 16;
 	let threshold = 96;
@@ -24,6 +24,9 @@
 
 	$: height = Math.round(width / aspectRatio);
 
+	const camWidth = 640;
+	const camHeight = 360;
+
 	const draw = () => {
 		if (context && hiddenContext && video && canvas && hiddenCanvas) {
 			if (type === 'binary') {
@@ -35,8 +38,8 @@
 
 			if (type === 'ascii') {
 				context.textBaseline = 'top';
-				context.font = `${pixelSize}px Menlo`;
-				hiddenContext.drawImage(video, 0, 0, width, height);
+				context.font = `${fontSize}px monospace`;
+				hiddenContext.drawImage(video, 0, 0, camWidth, camHeight, 0, 0, width, height);
 				const text = context.measureText('@');
 				context.clearRect(0, 0, width, height);
 				asciirize(context, hiddenContext, width, height, text.width, fontSize);
@@ -56,7 +59,7 @@
 	const mount = async () => {
 		if (video && canvas && hiddenCanvas) {
 			stream = await navigator.mediaDevices.getUserMedia({
-				video: { width: 640, height: 480, frameRate: 60 }
+				video: { width: camWidth, height: camHeight, frameRate: 60 }
 			});
 			context = canvas.getContext('2d');
 			hiddenContext = hiddenCanvas.getContext('2d');
@@ -116,7 +119,7 @@
 	{#if type === 'ascii'}
 		<label for="fontSize">
 			<span>Font size:</span>
-			<input id="fontSize" type="range" min="12" max="32" step="1" bind:value={fontSize} />
+			<input id="fontSize" type="range" min="8" max="48" step="1" bind:value={fontSize} />
 			<input type="text" bind:value={fontSize} />
 		</label>
 	{/if}
