@@ -52,6 +52,7 @@
 			stream = await navigator.mediaDevices.getUserMedia({
 				video: { width: camWidth, height: camHeight, frameRate: 60 }
 			});
+			video.setAttribute('playsinline', 'true');
 			context = canvas.getContext('2d');
 			hiddenContext = hiddenCanvas.getContext('2d');
 		}
