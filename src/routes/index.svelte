@@ -4,8 +4,6 @@
 	import { srcObject } from '$lib/actions';
 	import { onMount, onDestroy } from 'svelte';
 
-	export let aspectRatio = 16 / 9;
-
 	let width = 640;
 	let height = 360;
 	let pixelSize = 16;
@@ -22,27 +20,20 @@
 
 	let animationFrame = -1;
 
-	$: height = Math.round(width / aspectRatio);
-
-	const camWidth = 640;
-	const camHeight = 360;
+	let camWidth = 640;
+	let camHeight = 360;
 
 	const draw = () => {
 		if (context && hiddenContext && video && canvas && hiddenCanvas) {
 			if (type === 'binary') {
 				// pixelize the frame
-				pixelize(context, video, canvas, pixelSize, width, height);
+				pixelize(context, video, canvas, pixelSize, width, height, camWidth, camHeight);
 				// make the frame a binary image (black/white with image thresholding)
 				binarize(context, threshold, width, height);
 			}
 
 			if (type === 'ascii') {
-				context.textBaseline = 'top';
-				context.font = `${fontSize}px monospace`;
-				hiddenContext.drawImage(video, 0, 0, camWidth, camHeight, 0, 0, width, height);
-				const text = context.measureText('@');
-				context.clearRect(0, 0, width, height);
-				asciirize(context, hiddenContext, width, height, text.width, fontSize);
+				asciirize(context, hiddenContext, video, width, height, camWidth, camHeight, fontSize);
 			}
 		}
 
@@ -77,9 +68,10 @@
 </script>
 
 <svelte:head>
-	<title>Pixelized Binary Image Cam</title>
+	<title>BootCam(py)</title>
 </svelte:head>
-<svelte:window bind:innerWidth={width} />
+<svelte:window bind:innerWidth={width} bind:innerHeight={height} />
+
 <video
 	class="hidden"
 	use:srcObject={stream}
@@ -90,39 +82,43 @@
 >
 	<track kind="captions" />
 </video>
-<canvas bind:this={canvas} {width} {height} />
+<canvas bind:this={canvas} {width} {height} class:dark={type === 'ascii'} />
 <canvas class="hidden" bind:this={hiddenCanvas} {width} {height} />
 
 <aside>
-	<h2>Options</h2>
-	<fieldset for="type">
-		<h3>Effect type</h3>
-		<label>
-			<input type="radio" name="type" value="ascii" bind:group={type} /><span>Asciirize</span>
-		</label>
-		<label>
-			<input type="radio" name="type" value="binary" bind:group={type} /><span>Binarize</span>
-		</label>
-	</fieldset>
-	{#if type === 'binary'}
-		<label for="threshold">
-			<span>Threshhold:</span>
-			<input id="threshold" type="range" min="0" max="255" step="1" bind:value={threshold} />
-			<input type="text" bind:value={threshold} />
-		</label>
-		<label for="pixelSize">
-			<span>Pixel size:</span>
-			<input id="pixelSize" type="range" min="0.1" max="32" step="0.1" bind:value={pixelSize} />
-			<input type="text" bind:value={pixelSize} />
-		</label>
-	{/if}
-	{#if type === 'ascii'}
-		<label for="fontSize">
-			<span>Font size:</span>
-			<input id="fontSize" type="range" min="8" max="48" step="1" bind:value={fontSize} />
-			<input type="text" bind:value={fontSize} />
-		</label>
-	{/if}
+	<details>
+		<summary>Options</summary>
+		<fieldset for="type">
+			<h3>Effect type</h3>
+			<div>
+				<label>
+					<input type="radio" name="type" value="ascii" bind:group={type} /><span>Asciirize</span>
+				</label>
+				<label>
+					<input type="radio" name="type" value="binary" bind:group={type} /><span>Binarize</span>
+				</label>
+			</div>
+		</fieldset>
+		{#if type === 'binary'}
+			<label for="threshold">
+				<span>Threshhold:</span>
+				<input id="threshold" type="range" min="0" max="255" step="1" bind:value={threshold} />
+				<input type="text" bind:value={threshold} />
+			</label>
+			<label for="pixelSize">
+				<span>Pixel size:</span>
+				<input id="pixelSize" type="range" min="0.1" max="32" step="0.1" bind:value={pixelSize} />
+				<input type="text" bind:value={pixelSize} />
+			</label>
+		{/if}
+		{#if type === 'ascii'}
+			<label for="fontSize">
+				<span>Font size:</span>
+				<input id="fontSize" type="range" min="8" max="48" step="1" bind:value={fontSize} />
+				<input type="text" bind:value={fontSize} />
+			</label>
+		{/if}
+	</details>
 </aside>
 
 <style>
@@ -130,26 +126,25 @@
 		margin: 0;
 		padding: 0;
 		font-family: sans-serif;
+		overflow: hidden;
 	}
 
 	.hidden {
 		display: none;
 	}
 
+	summary {
+		cursor: pointer;
+	}
+
 	aside {
-		display: flex;
-		flex-direction: column;
 		gap: 0.33em;
-		position: absolute;
-		top: 2em;
-		right: 2em;
+		position: fixed;
+		top: 2rem;
+		right: 2rem;
 		background-color: hsla(0, 0%, 0%, 0.7);
 		padding: 1em;
 		color: hsla(0, 0%, 100%, 1);
-	}
-
-	h2 {
-		margin: 0 0 0.33em;
 	}
 
 	label {
@@ -161,7 +156,11 @@
 
 	fieldset {
 		border: 0;
-		padding: 0;
+		border-bottom: 1px dashed hsla(0, 0%, 100%, 1);
+		padding: 0 0 1em;
+	}
+
+	fieldset > div {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -169,6 +168,10 @@
 
 	fieldset label {
 		display: inline;
+	}
+
+	fieldset + label {
+		margin-top: 1em;
 	}
 
 	input[type='text'] {
